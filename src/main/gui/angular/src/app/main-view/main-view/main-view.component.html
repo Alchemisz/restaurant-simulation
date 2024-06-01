@@ -1,0 +1,71 @@
+<div class="mt-2">
+  <div class="row mb-2">
+    <h3>Podaj parametry symulacji:</h3>
+  </div>
+  <div class="form-group row">
+    <label class="form-label col-3">Liczba kucharzy</label>
+    <input type="number" class="form-control col-9" [(ngModel)]="options.cooksNumber" name="cooksNumber">
+  </div>
+  <div class="form-group row">
+    <label class="form-label col-3">Liczba kelnerów</label>
+    <input type="number" class="form-control col-9" [(ngModel)]="options.waitersNumber" name="waitersNumber">
+  </div>
+  <div class="form-group row ">
+    <label class="form-label col-3">Liczba kuchenek</label>
+    <input type="number" class="form-control col-9" [(ngModel)]="options.cookersNumber" name="cookersNumber">
+  </div>
+  <div class="form-group row">
+    <label class="form-label col-3">Czas trwania symulacji</label>
+    <input type="number" class="form-control col-9" [(ngModel)]="options.timeScale" name="timeScale">
+  </div>
+
+  <div class="form-group row">
+    <label class="form-label col-3">Stoły</label>
+    <textarea class="form-control col-9" id="seatsToNumberOfTablesRaw" rows="4" [(ngModel)]="seatsToNumberOfTablesRaw"
+      name="seatsToNumberOfTablesRaw"></textarea>
+  </div>
+
+  <button class="btn btn-primary" (click)="startSimulation()">START</button>
+</div>
+<hr>
+
+<div>
+  <strong>Start:</strong> {{ currentResteurantState.startTime }} <br />
+  <strong>Stop:</strong> {{ currentResteurantState.stopTime }} <br />
+  <strong>Zysk:</strong> {{ currentResteurantState.profit / 100 }} zł
+</div>
+
+<hr>
+
+<div class="row mt-4">
+
+  <div class="col">
+    <strong>KELNERZY</strong> <br />
+    <span>
+      <div *ngFor="let oneWaiter of currentResteurantState.waiters">
+        {{ oneWaiter.state }} {{ oneWaiter.currentTask }}
+      </div>
+    </span>
+  </div>
+
+  <div class="col">
+    <strong>Kucharze</strong> <br />
+    <span>
+      <div *ngFor="let oneCook of currentResteurantState.cooks">
+        {{ oneCook.state }}
+      </div>
+    </span>
+  </div>
+
+</div>
+
+<hr>
+
+<div class="row">
+  <div class="col-4">
+    <app-cookers></app-cookers>
+  </div>
+  <div class="col-8">
+    <app-tables></app-tables>
+  </div>
+</div>

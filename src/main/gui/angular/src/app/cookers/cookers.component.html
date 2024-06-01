@@ -1,0 +1,17 @@
+<div class="row">
+  <h5>
+    Stan kuchenek:
+  </h5>
+  <div class="row mt-2">
+    <div class="row col-12 mb-1" *ngFor="let cooker of getCurrentResteurantState().cookers">
+      <span style="margin-left: 10px;" class="dot" [ngClass]="{
+          available: cooker.available,
+          disabled: !cooker.available
+        }">
+      </span>
+      <span class="pl-1">
+        {{ cooker.currentDish ? cooker.currentDish : 'FREE' }}
+      </span>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,16 @@
+.dot {
+  margin-top: 2px;
+  height: 15px;
+  width: 15px;
+  background-color: green;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.disabled {
+  background-color: red !important;
+}
+
+.available {
+  background-color: green !important;
+}
