@@ -1,7 +1,6 @@
 import { Component, OnInit } from "@angular/core";
 import { RestService, SimulationOptions } from "./rest.service";
 import { NotificationService } from "src/app/utils/notificationService.service";
-import { interval } from "rxjs";
 import { StateServiceService } from "./state-service.service";
 
 @Component({
@@ -19,6 +18,9 @@ export class MainViewComponent implements OnInit {
   };
 
   seatsToNumberOfTablesRaw: String = '{ \n \t"4": 10,\n \t"2": 15 \n}';
+  currentResteurantState: any;
+
+  isSimulationStarted: boolean = false;
 
   constructor(
     private restService: RestService,
@@ -27,24 +29,17 @@ export class MainViewComponent implements OnInit {
   ) {}
 
   startSimulation() {
+    this.isSimulationStarted = true;
     try {
       this.options.seatsToNumberOfTablesMap = JSON.parse(
         this.seatsToNumberOfTablesRaw.toString()
       );
     } catch (e) {
-      console.log(e);
       this.notifyService.showErrorMessage("Bład parsowania json - " + e);
       return;
     }
 
-    this.restService.startSimulation(this.options).subscribe(
-      (res) => {
-        this.notifyService.success();
-      },
-      (err) => {
-        this.notifyService.failure(err);
-      }
-    );
+    this.restService.startSimulation(this.options);
   }
 
   ngOnInit() {
@@ -58,26 +53,14 @@ export class MainViewComponent implements OnInit {
       }
     );
 
-    interval(100).subscribe((tmp) => {
-      this.refreshView();
-    });
-  }
-
-  currentResteurantState: any;
-
-  getCurrentResteurantState() {
-    return JSON.stringify(this.currentResteurantState);
-  }
-
-  refreshView() {
-    this.restService.getRestaurantView().subscribe(
-      (res) => {
-        this.currentResteurantState = res;
-        this.stateService.currentResteurantState = res;
-      },
-      (err) => {
-        this.notifyService.failure(err);
+    this.restService.restaurantViewSubject.subscribe((data) => {
+      this.currentResteurantState = data;
+      this.stateService.currentResteurantState = data;
+      if (this.currentResteurantState.nextStepAvailable) {
+        setTimeout(() => this.restService.refreshView(), 50);
+      } else {
+        return;
       }
-    );
+    });
   }
 }

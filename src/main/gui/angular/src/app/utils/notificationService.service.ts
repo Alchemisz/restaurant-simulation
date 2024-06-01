@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 
 @Injectable({
-  providedIn: "root"
+  providedIn: "root",
 })
 export class NotificationService {
   constructor(private toastr: ToastrService) {}
@@ -21,11 +21,9 @@ export class NotificationService {
     if (err && err.error && err && err.error.message) msg = err.error.message;
 
     if (msg == null) {
-      this.toastr.error("Nikt nie spodziewał się hiszpańskiej inkwizycji");
+      this.toastr.error("Błąd");
     } else {
-      this.toastr.error(
-        "Nikt nie spodziewał się hiszpańskiej inkwizycji: " + msg
-      );
+      this.toastr.error("Błąd: " + msg);
     }
   }
 

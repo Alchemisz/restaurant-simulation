@@ -1,31 +1,30 @@
 package restaurant.core;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-public class Infrastructure {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+class Infrastructure {
 
-    public static List<Table> generateTables(Map<Integer, Integer> numOfSeatsToNumOfTablesMAP) {
-        List<Table> results = new LinkedList<>();
-        AtomicInteger counter = new AtomicInteger(1);
+    static List<Table> generateTables(Map<Integer, Integer> numberOfSeatsByNumberOfTables) {
+        List<Table> tables = new LinkedList<>();
+        int counter = 1;
 
+        for (Map.Entry<Integer, Integer> entry : numberOfSeatsByNumberOfTables.entrySet()) {
+            int numberOfSeats = entry.getKey();
+            int numberOfTables = entry.getValue();
 
-        numOfSeatsToNumOfTablesMAP.forEach((numberOfSeats, numberOfTables) -> {
-            IntStream.range(0, numberOfTables).forEach(v -> {
+            for (int i = 0; i < numberOfTables; i++) {
+                tables.add(Table.availableEmpty(counter++, numberOfSeats));
+            }
+        }
 
-                results.add(Table.builder()
-                        .number(counter.getAndIncrement())
-                        .seats(numberOfSeats)
-                        .available(true)
-                        .client(null)
-                        .build());
-            });
-
-        });
-
-        return results;
+        return tables;
     }
 }

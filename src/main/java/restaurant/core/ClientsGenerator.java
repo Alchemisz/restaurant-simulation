@@ -2,12 +2,9 @@ package restaurant.core;
 
 import lombok.NoArgsConstructor;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @NoArgsConstructor
 public class ClientsGenerator {
@@ -18,16 +15,11 @@ public class ClientsGenerator {
         int servingTimePerOne = random.nextInt(3) + 1;
         int eatingTimePerOne = random.nextInt(2) + 1;
 
-        List<DishName> dishes = IntStream.range(0, clientNumbers)
-            .mapToObj(id -> randomDish())
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
-
         return Client.builder()
-            .servingTime(Utils.convertToUnit(clientNumbers * servingTimePerOne))
-            .eatingTime(Utils.convertToUnit(clientNumbers * eatingTimePerOne))
+            .servingTime(Utils.convertToUnit((long) clientNumbers * servingTimePerOne))
+            .eatingTime(Utils.convertToUnit((long) clientNumbers * eatingTimePerOne))
             .clientNumbers(clientNumbers)
-            .dishes(dishes)
+            .dishes(generateDishes(clientNumbers))
             .build();
     }
 
@@ -41,8 +33,14 @@ public class ClientsGenerator {
         return clientNumber;
     }
 
+    private List<DishName> generateDishes(int clientNumbers) {
+        return Stream.generate(this::randomDishes)
+            .limit(clientNumbers)
+            .flatMap(Collection::stream)
+            .collect(Collectors.toList());
+    }
 
-    private List<DishName> randomDish() {
+    private List<DishName> randomDishes() {
         int idx = random.nextInt(DishName.values().length);
 
         DishName[] vals = DishName.values();
@@ -55,6 +53,6 @@ public class ClientsGenerator {
             return Arrays.asList(dish, vals[idx2]);
         }
 
-        return Arrays.asList(dish);
+        return Collections.singletonList(dish);
     }
 }

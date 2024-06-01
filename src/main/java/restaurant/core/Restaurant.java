@@ -58,13 +58,15 @@ public class Restaurant {
 
     public Restaurant(SimulationOptions options) {
         this.options = options;
-
-        this.dishesMap = prepareDishes(options);
+        this.dishesMap = prepareDishes();
         this.tablesMap = prepareTables(options);
-        this.tablesNumberBySeatsNumberMAP = tablesMap.values().stream().collect(Collectors.groupingBy(Table::getSeats, Collectors.mapping(Table::getNumber, Collectors.toList())));
 
-        Integer minKey = this.tablesNumberBySeatsNumberMAP.keySet().stream().min(Integer::compareTo).orElseThrow(() -> new IllegalStateException("There is no min numberOfSets - probably empty"));
-        Integer maxKey = this.tablesNumberBySeatsNumberMAP.keySet().stream().max(Integer::compareTo).orElseThrow(() -> new IllegalStateException("There is no max numberOfSets - probably empty"));
+        this.tablesNumberBySeatsNumberMAP = tablesMap.values().stream()
+            .collect(Collectors.groupingBy(Table::getSeats, Collectors.mapping(Table::getNumber, Collectors.toList())));
+
+        Integer maxKey = this.tablesNumberBySeatsNumberMAP.keySet().stream()
+            .max(Integer::compareTo)
+            .orElseThrow(() -> new IllegalStateException("There is no max numberOfSets - probably empty"));
 
         IntStream.rangeClosed(1, maxKey).forEach(key -> {
             if (!tablesNumberBySeatsNumberMAP.containsKey(key)) {
@@ -225,8 +227,9 @@ public class Restaurant {
     }
 
 
-    private Map<DishName, Dish> prepareDishes(SimulationOptions options) {
-        return Menu.getAllDishes().stream().collect(Collectors.toMap(Dish::getDishName, d -> d));
+    private Map<DishName, Dish> prepareDishes() {
+        return Menu.getAllDishes().stream()
+            .collect(Collectors.toMap(Dish::getDishName, d -> d));
     }
 
     private Map<Integer, Table> prepareTables(SimulationOptions options) {
@@ -267,6 +270,7 @@ public class Restaurant {
             .waiters(allWaiters.stream().map(this::toView).collect(Collectors.toList()))
             .tables(tablesMap.values().stream().map(this::toView).collect(Collectors.toList()))
             .cookers(cookerManager.getAllCookers().stream().map(this::toView).collect(Collectors.toList()))
+            .nextStepAvailable(true)
             .build();
     }
 
@@ -279,6 +283,7 @@ public class Restaurant {
             .waiters(allWaiters.stream().map(this::toFinalView).collect(Collectors.toList()))
             .tables(tablesMap.values().stream().map(this::toFinalView).collect(Collectors.toList()))
             .cookers(cookerManager.getAllCookers().stream().map(this::toFinalView).collect(Collectors.toList()))
+            .nextStepAvailable(false)
             .build();
     }
 

@@ -19,4 +19,5 @@ public class RestaurantView {
 
     List<CookView> cooks;
     List<WaiterView> waiters;
+    boolean nextStepAvailable;
 }

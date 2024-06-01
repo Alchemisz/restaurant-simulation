@@ -26,46 +26,51 @@
   </div>
 
   <button class="btn btn-primary" (click)="startSimulation()">START</button>
-</div>
-<hr>
 
-<div>
-  <strong>Start:</strong> {{ currentResteurantState.startTime }} <br />
-  <strong>Stop:</strong> {{ currentResteurantState.stopTime }} <br />
-  <strong>Zysk:</strong> {{ currentResteurantState.profit / 100 }} zł
-</div>
+  <hr>
 
-<hr>
+  <ng-container *ngIf="isSimulationStarted">
 
-<div class="row mt-4">
+    <div>
+      <strong>Start:</strong> {{ currentResteurantState.startTime }} <br />
+      <strong>Stop:</strong> {{ currentResteurantState.stopTime }} <br />
+      <strong>Zysk:</strong> {{ currentResteurantState.profit / 100 }} zł
+    </div>
 
-  <div class="col">
-    <strong>KELNERZY</strong> <br />
-    <span>
-      <div *ngFor="let oneWaiter of currentResteurantState.waiters">
-        {{ oneWaiter.state }} {{ oneWaiter.currentTask }}
+    <hr>
+
+    <div class="row mt-4">
+
+      <div class="col">
+        <strong>KELNERZY</strong> <br />
+        <span>
+          <div *ngFor="let oneWaiter of currentResteurantState.waiters">
+            {{ oneWaiter.state }} {{ oneWaiter.currentTask }}
+          </div>
+        </span>
       </div>
-    </span>
-  </div>
 
-  <div class="col">
-    <strong>Kucharze</strong> <br />
-    <span>
-      <div *ngFor="let oneCook of currentResteurantState.cooks">
-        {{ oneCook.state }}
+      <div class="col">
+        <strong>Kucharze</strong> <br />
+        <span>
+          <div *ngFor="let oneCook of currentResteurantState.cooks">
+            {{ oneCook.state }}
+          </div>
+        </span>
       </div>
-    </span>
-  </div>
 
-</div>
+    </div>
 
-<hr>
+    <hr>
 
-<div class="row">
-  <div class="col-4">
-    <app-cookers></app-cookers>
-  </div>
-  <div class="col-8">
-    <app-tables></app-tables>
-  </div>
+    <div class="row mb-4">
+      <div class="col-4">
+        <app-cookers></app-cookers>
+      </div>
+      <div class="col-8">
+        <app-tables></app-tables>
+      </div>
+    </div>
+
+  </ng-container>
 </div>
