@@ -19,8 +19,8 @@ public class RestaurantConfig {
     private Restaurant restaurant;
 
     void fill(Restaurant restaurant) {
-        this.dishesMap = restaurant.getDishesMap();
-        this.tablesMap = restaurant.getTablesMap();
+        this.dishesMap = restaurant.getDishByDishName();
+        this.tablesMap = restaurant.getTableByTableNumber();
         this.restaurant = restaurant;
     }
 

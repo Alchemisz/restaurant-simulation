@@ -16,14 +16,9 @@ public class CookerManager {
     private final List<Cooker> allCookers = new LinkedList<>();
 
     public CookerManager(int cookersNumber) {
-        IntStream.range(0, cookersNumber).forEach(x -> {
-            allCookers.add(Cooker.builder().available(true).build());
-        });
-
-
+        IntStream.range(0, cookersNumber).forEach(x -> allCookers.add(Cooker.availableFree()));
         availableCookers.addAll(allCookers);
     }
-
 
     public Cooker take() {
         try {

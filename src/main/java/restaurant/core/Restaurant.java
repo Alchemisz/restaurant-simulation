@@ -2,13 +2,10 @@ package restaurant.core;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j;
+import restaurant.core.threads.ArrivingClientThread;
 import restaurant.rest.SimulationOptions;
-import restaurant.view.*;
+import restaurant.view.RestaurantView;
 
-import java.text.Format;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -17,20 +14,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static restaurant.core.RestaurantViewBuilder.toDateFormat;
+
 @Log4j
 public class Restaurant {
     @Getter
-    private final Map<DishName, Dish> dishesMap;
+    private final Map<DishName, Dish> dishByDishName;
     @Getter
-    private final Map<Integer, Table> tablesMap;
+    private final Map<Integer, Table> tableByTableNumber;
     private final Map<Integer, List<Integer>> tablesNumberBySeatsNumberMAP;
 
     private long startTime;
     private long closeTime;
 
-    private Thread arrivingClientThread;
+    private ArrivingClientThread arrivingClientThread;
     private Thread managerThread;
-    private final ClientsGenerator clientsGenerator = new ClientsGenerator();
 
 
     private CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -54,46 +52,24 @@ public class Restaurant {
     @Getter
     private SimulationOptions options;
 
-    private Format format = new SimpleDateFormat("yyyy MM dd HH:mm:ss");
 
     public Restaurant(SimulationOptions options) {
         this.options = options;
-        this.dishesMap = prepareDishes();
-        this.tablesMap = prepareTables(options);
+        this.dishByDishName = prepareDishes();
+        this.tableByTableNumber = prepareTables(options);
 
-        this.tablesNumberBySeatsNumberMAP = tablesMap.values().stream()
+        this.tablesNumberBySeatsNumberMAP = tableByTableNumber.values().stream()
             .collect(Collectors.groupingBy(Table::getSeats, Collectors.mapping(Table::getNumber, Collectors.toList())));
 
-        Integer maxKey = this.tablesNumberBySeatsNumberMAP.keySet().stream()
-            .max(Integer::compareTo)
-            .orElseThrow(() -> new IllegalStateException("There is no max numberOfSets - probably empty"));
+        Integer maxSeatsNumber = findMaxSeatsNumber();
+        fillMissingSeatsNumber(maxSeatsNumber);
 
-        IntStream.rangeClosed(1, maxKey).forEach(key -> {
-            if (!tablesNumberBySeatsNumberMAP.containsKey(key)) {
-                tablesNumberBySeatsNumberMAP.put(key, Collections.emptyList());
-            }
-        });
-
-        cookerManager = new CookerManager(options.getCookersNumber());
+        this.cookerManager = new CookerManager(options.getCookersNumber());
 
         this.allCooks = prepareCooks(options);
         this.allWaiters = prepareWaiters(options);
 
-        this.arrivingClientThread = new Thread(() -> {
-            while (true) {
-                try {
-                    Thread.sleep(Utils.convertToUnit(1));
-                    Client client = clientsGenerator.generateNewClient();
-                    log.info("New client arrived" + client);
-                    waitingClients.add(client);
-
-                } catch (InterruptedException e) {
-                    throw new IllegalStateException(e.getMessage(), e);
-                }
-            }
-
-        });
-
+        this.arrivingClientThread = new ArrivingClientThread(waitingClients);
 
         this.managerThread = new Thread(() -> {
             while (true) {
@@ -101,20 +77,31 @@ public class Restaurant {
                     log.info("Room manager wait for client");
                     Client client = waitingClients.take();
                     log.info("Room manager assigning table for client " + client);
-                    RestaurantTask task = assignTable(client);
-
+                    RestaurantTask orderTask = assignFreeTableToClient(client);
                     log.info("Room manager add task for waiter " + client);
-
-                    waiterTasksQueue.add(task);
+                    waiterTasksQueue.add(orderTask);
                 } catch (InterruptedException e) {
                     throw new IllegalStateException(e.getMessage(), e);
                 }
             }
         });
 
-
         this.allWaiters.forEach(w -> w.assignTaskQueue(waiterTasksQueue, cookTasksQueue));
         this.allCooks.forEach(w -> w.assignTaskQueue(cookerManager, waiterTasksQueue, cookTasksQueue));
+    }
+
+    private void fillMissingSeatsNumber(Integer maxSeatsNumber) {
+        IntStream.rangeClosed(1, maxSeatsNumber).forEach(it -> {
+            if (!tablesNumberBySeatsNumberMAP.containsKey(it)) {
+                tablesNumberBySeatsNumberMAP.put(it, Collections.emptyList());
+            }
+        });
+    }
+
+    private Integer findMaxSeatsNumber() {
+        return this.tablesNumberBySeatsNumberMAP.keySet().stream()
+            .max(Integer::compareTo)
+            .orElseThrow(() -> new IllegalStateException("There is no max numberOfSets - probably empty"));
     }
 
     private List<Cook> prepareCooks(SimulationOptions options) {
@@ -125,57 +112,12 @@ public class Restaurant {
         return IntStream.range(0, options.getWaitersNumber()).mapToObj(v -> new Waiter()).collect(Collectors.toList());
     }
 
-    private RestaurantTask assignTable(Client client) throws InterruptedException {
-        Integer tableNumber = tryToFindTableOrBlock(client);
-
-        Table table = tablesMap.get(tableNumber);
-        table.seat(client);
-
-        return new GetOrder(client, table);
-    }
-
-    private Integer tryToFindTableOrBlock(Client client) throws InterruptedException {
-        while (true) {
-            Integer tableNumber = findAvailableTable(client);
-
-            if (tableNumber == null) {
-                countDownLatch = new CountDownLatch(1);
-                countDownLatch.await();
-            } else {
-                return tableNumber;
-            }
-        }
-    }
-
-    private Integer findAvailableTable(Client client) {
-        for (int seatsNumber = client.getClientNumbers(); tablesNumberBySeatsNumberMAP.containsKey(seatsNumber); ++seatsNumber) {
-
-            List<Integer> tables = tablesNumberBySeatsNumberMAP.get(seatsNumber);
-            Optional<Integer> avaliableTableNumber = tables.stream().filter(tableNumber -> {
-                return tablesMap.get(tableNumber).isAvailable();
-            }).findFirst();
-
-            if (avaliableTableNumber.isPresent()) {
-                return avaliableTableNumber.get();
-            }
-        }
-
-        return null;
-    }
-
-    private void start(SimulationOptions options) {
-        start();
-    }
-
     public void start() {
-        Utils.changeScale(options.getTimeScale());
-
         log.info("Start restaurant");
+        Utils.changeScale(options.getTimeScale());
         running.set(true);
         RestaurantConfig.getInstance().fill(this);
-
         profit = 0;
-
         startTime = System.currentTimeMillis();
 
         allWaiters.forEach(Waiter::start);
@@ -183,9 +125,7 @@ public class Restaurant {
         managerThread.start();
         arrivingClientThread.start();
 
-
         closeTime = startTime + Utils.convertToUnit(1000);
-
 
         startTimerCheckingForRestaurantClosing();
 
@@ -220,12 +160,45 @@ public class Restaurant {
         allCooks.forEach(Cook::stop);
         managerThread.interrupt();
         arrivingClientThread.interrupt();
-
-
         log.info("Restaurant has been closed - profit " + (profit / 100.0));
         running.set(false);
     }
 
+    private RestaurantTask assignFreeTableToClient(Client client) throws InterruptedException {
+        Integer tableNumber = tryToFindFreeTableOrBlock(client);
+        Table table = tableByTableNumber.get(tableNumber);
+        table.seat(client);
+        return new GetOrder(client, table);
+    }
+
+    private Integer tryToFindFreeTableOrBlock(Client client) throws InterruptedException {
+        while (true) {
+            Integer tableNumber = findAvailableTable(client);
+
+            if (tableNumber == null) {
+                countDownLatch = new CountDownLatch(1);
+                countDownLatch.await();
+            } else {
+                return tableNumber;
+            }
+        }
+    }
+
+    private Integer findAvailableTable(Client client) {
+        for (int seatsNumber = client.getClientNumbers(); tablesNumberBySeatsNumberMAP.containsKey(seatsNumber); ++seatsNumber) {
+
+            List<Integer> tables = tablesNumberBySeatsNumberMAP.get(seatsNumber);
+            Optional<Integer> avaliableTableNumber = tables.stream()
+                .filter(tableNumber -> tableByTableNumber.get(tableNumber).isAvailable())
+                .findFirst();
+
+            if (avaliableTableNumber.isPresent()) {
+                return avaliableTableNumber.get();
+            }
+        }
+
+        return null;
+    }
 
     private Map<DishName, Dish> prepareDishes() {
         return Menu.getAllDishes().stream()
@@ -248,12 +221,11 @@ public class Restaurant {
     public void finishServingClient(Integer tableNumber) {
         Table table = RestaurantConfig.getInstance().getTablesMap().get(tableNumber);
 
-        table.getClient().getDishes().stream().map(this.dishesMap::get).filter(Objects::nonNull).map(Dish::getPrice).forEach(price -> {
-                this.profit += price;
-
-            }
-        );
-
+        table.getClient().getDishes().stream()
+            .map(this.dishByDishName::get)
+            .filter(Objects::nonNull)
+            .map(Dish::getPrice)
+            .forEach(price -> this.profit += price);
 
         table.free();
         notifyRoomManager();
@@ -261,15 +233,14 @@ public class Restaurant {
 
 
     public RestaurantView read() {
-
         return RestaurantView.builder()
             .startTime(toDateFormat(startTime))
             .stopTime(toDateFormat(closeTime))
             .profit(profit)
-            .cooks(allCooks.stream().map(this::toView).collect(Collectors.toList()))
-            .waiters(allWaiters.stream().map(this::toView).collect(Collectors.toList()))
-            .tables(tablesMap.values().stream().map(this::toView).collect(Collectors.toList()))
-            .cookers(cookerManager.getAllCookers().stream().map(this::toView).collect(Collectors.toList()))
+            .cooks(allCooks.stream().map(RestaurantViewBuilder::toView).collect(Collectors.toList()))
+            .waiters(allWaiters.stream().map(RestaurantViewBuilder::toView).collect(Collectors.toList()))
+            .tables(tableByTableNumber.values().stream().map(RestaurantViewBuilder::toView).collect(Collectors.toList()))
+            .cookers(cookerManager.getAllCookers().stream().map(RestaurantViewBuilder::toView).collect(Collectors.toList()))
             .nextStepAvailable(true)
             .build();
     }
@@ -279,101 +250,12 @@ public class Restaurant {
             .startTime(toDateFormat(startTime))
             .stopTime(toDateFormat(closeTime))
             .profit(profit)
-            .cooks(allCooks.stream().map(this::toFinalView).collect(Collectors.toList()))
-            .waiters(allWaiters.stream().map(this::toFinalView).collect(Collectors.toList()))
-            .tables(tablesMap.values().stream().map(this::toFinalView).collect(Collectors.toList()))
-            .cookers(cookerManager.getAllCookers().stream().map(this::toFinalView).collect(Collectors.toList()))
+            .cooks(allCooks.stream().map(RestaurantViewBuilder::toFinalView).collect(Collectors.toList()))
+            .waiters(allWaiters.stream().map(RestaurantViewBuilder::toFinalView).collect(Collectors.toList()))
+            .tables(tableByTableNumber.values().stream().map(RestaurantViewBuilder::toFinalView).collect(Collectors.toList()))
+            .cookers(cookerManager.getAllCookers().stream().map(RestaurantViewBuilder::toFinalView).collect(Collectors.toList()))
             .nextStepAvailable(false)
             .build();
-    }
-
-    private CookerView toFinalView(Cooker cooker) {
-        return CookerView.builder()
-            .available(true)
-            .currentDish(null)
-            .build();
-    }
-
-    private TableView toFinalView(Table table) {
-        return TableView.builder()
-            .available(true)
-            .number(table.getNumber())
-            .seats(table.getSeats())
-            .numberOfSittingPeople(0)
-            .build();
-    }
-
-    private CookView toFinalView(Cook cook) {
-        return new CookView(
-            translate(CookState.WAIT_FOR_TASK)
-        );
-    }
-
-    private WaiterView toFinalView(Waiter waiter) {
-        return new WaiterView(
-            translate(WaiterState.WAITING_FOR_TASK),
-            waiter.getCurrentTask()
-        );
-    }
-
-    private CookView toView(Cook cook) {
-        return CookView.builder()
-            .state(translate(cook.getState()))
-            .build();
-    }
-
-    private static String translate(CookState cookState) {
-        switch (cookState) {
-            case WAIT_FOR_TASK:
-                return "Oczekuje na zadanie";
-            case PREPARING_MEAL:
-                return "Przygotowuje posiłek";
-            case WAITING_FOR_COOKED_MEAL:
-                return "Oczekuje na ugotowanie posiłku";
-        }
-        throw new IllegalStateException(String.format("Unhandled cook state: %s", cookState));
-    }
-
-    private TableView toView(Table value) {
-        return TableView.builder()
-            .available(value.isAvailable())
-            .number(value.getNumber())
-            .seats(value.getSeats())
-            .numberOfSittingPeople(value.getClient() != null ? value.getClient().getClientNumbers() : 0)
-            .build();
-    }
-
-    private WaiterView toView(Waiter value) {
-        return WaiterView.builder()
-            .state(translate(value.getState()))
-            .currentTask(value.getCurrentTask())
-            .build();
-    }
-
-    private String translate(WaiterState waiterState) {
-        switch (waiterState) {
-            case DOING_TASK:
-                return "Wykonuje zadanie";
-            case WAITING_FOR_TASK:
-                return "Oczekuje na zadanie";
-        }
-        throw new IllegalStateException(String.format("Unhandled waiter state: %s", waiterState));
-    }
-
-    private CookerView toView(Cooker value) {
-        return CookerView.builder()
-            .available(value.isAvailable())
-            .currentDish(value.getCurrentDish())
-            .build();
-    }
-
-    private LocalDateTime toLocalDateTime(long time) {
-        return LocalDateTime.ofInstant(Instant.ofEpochSecond(time),
-            TimeZone.getDefault().toZoneId());
-    }
-
-    private String toDateFormat(long time) {
-        return format.format(new Date(time));
     }
 
     public boolean isRunning() {

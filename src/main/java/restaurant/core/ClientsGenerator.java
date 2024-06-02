@@ -1,16 +1,17 @@
 package restaurant.core;
 
+import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ClientsGenerator {
-    private final Random random = new Random();
+    private static final Random random = new Random();
 
-    Client generateNewClient() {
+    public static Client generateNewClient() {
         int clientNumbers = generateClientNumbersNormallyDistributed();
         int servingTimePerOne = random.nextInt(3) + 1;
         int eatingTimePerOne = random.nextInt(2) + 1;
@@ -23,7 +24,7 @@ public class ClientsGenerator {
             .build();
     }
 
-    private int generateClientNumbersNormallyDistributed() {
+    private static int generateClientNumbersNormallyDistributed() {
         double mean = 2.5;
         double stdDeviation = 1;
         int clientNumber;
@@ -33,14 +34,14 @@ public class ClientsGenerator {
         return clientNumber;
     }
 
-    private List<DishName> generateDishes(int clientNumbers) {
-        return Stream.generate(this::randomDishes)
+    private static List<DishName> generateDishes(int clientNumbers) {
+        return Stream.generate(ClientsGenerator::randomDishes)
             .limit(clientNumbers)
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
     }
 
-    private List<DishName> randomDishes() {
+    private static List<DishName> randomDishes() {
         int idx = random.nextInt(DishName.values().length);
 
         DishName[] vals = DishName.values();
