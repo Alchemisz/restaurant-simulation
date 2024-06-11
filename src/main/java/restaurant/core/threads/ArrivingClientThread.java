@@ -3,11 +3,10 @@ package restaurant.core.threads;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import restaurant.core.Client;
+import restaurant.core.ClientArrivingTimeGenerator;
 import restaurant.core.ClientsGenerator;
 
 import java.util.concurrent.BlockingQueue;
-
-import static restaurant.shared.AppConstants.CLIENT_ARRIVING_TIME_IN_MILLISECONDS;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -18,7 +17,7 @@ public class ArrivingClientThread extends Thread {
     @Override
     public void run() {
         while (true) {
-            sleep(CLIENT_ARRIVING_TIME_IN_MILLISECONDS);
+            sleep(ClientArrivingTimeGenerator.getExponentialTime());
             Client client = ClientsGenerator.generateNewClient();
             log.info(String.format("New client arrived: %s", client));
             waitingClientsQueue.add(client);
